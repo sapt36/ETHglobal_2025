@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 import requests
@@ -11,6 +12,7 @@ my_1inch_api_key = os.getenv("1INCH_API_KEY")
 my_wallet_address = os.getenv("WALLET_ADDRESS")
 
 app = Flask(__name__)
+CORS(app)
 
 # 定義網絡名稱與對應的 ChainID (全部以十進位字串表示)
 CHAIN_IDS = {
@@ -232,6 +234,7 @@ def get_CombinedBalance(network, wallet_address):
 
     # (4) 回傳最終結果
     return jsonify(combined_result)
+
 
 @app.route('/api/GasPrice/<network>', methods=['GET'])
 def get_GasPrice(network):

@@ -309,6 +309,37 @@ def get_CombinedBalance(network, wallet_address):
     return jsonify(combined_result)
 
 
+@app.route('/api/NFT/<wallet_address>', methods=['GET'])
+def get_NFTs(wallet_address):
+
+    apiUrl = f"https://api.1inch.dev/nft/v2/byaddress"
+
+    requestOptions = {
+        "headers": {
+            "Authorization": f"Bearer {my_1inch_api_key}"
+        },
+        "body": "",
+        "params": {
+            "chainIds": [
+                1,
+                137,
+                8453,
+                42161,
+                8217,
+                43114,
+                10
+            ],
+            "address": f"{wallet_address}",
+        }
+    }
+    # Prepare request components
+    headers = requestOptions.get("headers", {})
+    body = requestOptions.get("body", {})
+    params = requestOptions.get("params", {})
+
+    return requests.get(apiUrl, headers=headers, params=params).json()
+
+
 @app.route('/api/GasPrice/<network>', methods=['GET'])
 def get_GasPrice(network):
     # 轉成小寫處理，避免大小寫不一致問題

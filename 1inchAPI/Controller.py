@@ -295,7 +295,7 @@ def get_CombinedBalance(network, wallet_address):
 
         true_balance_amount = real_balance / (10 ** token_decimals)
         balance_in_usd = true_balance_amount * price_usd
-        balance_display_str = f"{true_balance_amount}(USD={balance_in_usd:.2f})"
+        balance_display_str = f"{true_balance_amount}"
 
         final_key = f"{token_name}"
         combined_result[final_key] = balance_display_str

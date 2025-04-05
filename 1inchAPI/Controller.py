@@ -259,25 +259,43 @@ def get_CombinedBalance(network, wallet_address):
 
     token_addresses = list(balance_res.keys())
 
+    # (2) 一次抓取所有 Token 價格
+    joined_tokens = ",".join(token_addresses)
+    price_api_url = f"https://api.1inch.dev/price/v1.1/{chain_id}/?tokens={joined_tokens}"
+    price_res = requests.get(price_api_url, headers=headers).json()
+
+    token_price_map = {}
+    if isinstance(price_res, dict) and "tokens" in price_res:
+        token_price_map = price_res["tokens"]
+
     # (3) 取得 Token Metadata 並計算
     combined_result = {}
     for token_addr in token_addresses:
-        time.sleep(0.5)  # 節流 - 每查一個 token 前暫停 1 秒
+        time.sleep(1)  # 節流 - 每查一個 token 前暫停 1 秒
         raw_balance_str = balance_res[token_addr]
         try:
             real_balance = int(raw_balance_str)
         except ValueError:
             real_balance = 0
 
+        token_price_info = token_price_map.get(token_addr.lower(), {})
+        price_usd_str = token_price_info.get("price", "0")
+        decimals_in_price = token_price_info.get("decimals", 18)
+
+        try:
+            price_usd = float(price_usd_str)
+        except ValueError:
+            price_usd = 0
+
         # 先呼叫 1inch Token Info API
         token_info_url = f"https://api.1inch.dev/token/v1.2/{chain_id}/custom/{token_addr}"
         token_info_res = requests.get(token_info_url, headers=headers).json()
         token_name = token_info_res.get("name", "Unknown")
         token_decimals = token_info_res.get("decimals", 18)
-        token_img_url = token_info_res.get("logoURI", "Unknown")
 
         true_balance_amount = real_balance / (10 ** token_decimals)
-        balance_display_str = f"[{true_balance_amount}, {token_img_url}]"
+        balance_in_usd = true_balance_amount * price_usd
+        balance_display_str = f"{true_balance_amount}"
 
         final_key = f"{token_name}"
         combined_result[final_key] = balance_display_str

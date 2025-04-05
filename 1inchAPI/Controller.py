@@ -161,7 +161,6 @@ def get_CombinedBalance(network, wallet_address):
     #   ...
     # }
 
-    # TODO
     if not isinstance(balance_res, dict):
         # 如果取得資料不是預期的 dict 結構，就直接回傳錯誤
         return jsonify({"error": "取得錢包餘額時發生異常"}), 500

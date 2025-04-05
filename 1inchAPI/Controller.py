@@ -45,6 +45,35 @@ def get_data():
     return jsonify(example_data)
 
 
+# example
+# V_GOD Token : MOO DENG -> 0x28561b8a2360f463011c16b6cc0b0cbef8dbbcad
+# "from": "1743844261" 2025/04/05 17:11:01
+# "to": "1743854275"   2025/04/05 19:57:55
+@app.route('/api/Chart/HistoryTokenPrice/<network>/<TimeFrom>/<TimeTo>/<token_address>', methods=['GET'])
+def get_HistoryTokenPrice(network, token_address, TimeFrom, TimeTo):
+    network_key = network.lower()
+    chain_id = CHAIN_IDS.get(network_key)
+
+    apiUrl = f"https://api.1inch.dev/token-details/v1.0/charts/range/{chain_id}/{token_address}"
+    requestOptions = {
+        "headers": {
+            "Authorization": f"Bearer {my_1inch_api_key}"
+        },
+        "body": "",
+        "params": {
+            "from": f"{TimeFrom}",
+            "to": f"{TimeTo}",
+        }
+    }
+
+    # Prepare request components
+    headers = requestOptions.get("headers", {})
+    body = requestOptions.get("body", {})
+    params = requestOptions.get("params", {})
+
+    return requests.get(apiUrl, headers=headers, params=params).json()
+
+
 @app.route('/api/OrderBook/Hash/<network>/<hash_address>', methods=['GET'])
 def get_OrderBookByHash(hash_address, network):
     network_key = network.lower()

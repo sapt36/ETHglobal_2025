@@ -1,5 +1,5 @@
 from flask import Flask, jsonify
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from dotenv import load_dotenv
 import os
 import requests
@@ -18,7 +18,7 @@ CORS(app)
 # 格式: { cache_key: {"data":..., "timestamp":...} }
 combined_balance_cache = {}
 
-CACHE_TTL_SECONDS = 120  # 資料緩存時間 (秒)，可自行調整
+CACHE_TTL_SECONDS = 12000  # 資料緩存時間 (秒)，可自行調整
 
 # 定義網絡名稱與對應的 ChainID (全部以十進位字串表示)
 CHAIN_IDS = {
@@ -222,6 +222,7 @@ def get_TokenInfo(network, token_address):
 
 
 @app.route('/api/Token/CombinedBalance/<network>/<wallet_address>', methods=['GET'])
+@cross_origin()
 def get_CombinedBalance(network, wallet_address):
     network_key = network.lower()
     chain_id = CHAIN_IDS.get(network_key)

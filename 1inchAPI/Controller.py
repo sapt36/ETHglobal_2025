@@ -45,6 +45,57 @@ def get_data():
     return jsonify(example_data)
 
 
+@app.route('/api/Chart/Token/<network>/<token_address>', methods=['GET'])
+def get_ChartToken(network, token_address):
+    network_key = network.lower()
+    chain_id = CHAIN_IDS.get(network_key)
+
+    apiUrl = f"https://api.1inch.dev/token-details/v1.0/charts/interval/{chain_id}/{token_address}"
+    requestOptions = {
+        "headers": {
+            "Authorization": f"Bearer {my_1inch_api_key}"
+        },
+        "body": "",
+        "params": {
+            "interval": "24h, 1w, 1m, 1y",
+            "from_time": "1631644261"
+        }
+    }
+
+    # Prepare request components
+    headers = requestOptions.get("headers", {})
+    body = requestOptions.get("body", {})
+    params = requestOptions.get("params", {})
+
+    return requests.get(apiUrl, headers=headers, params=params).json()
+
+# example
+# interval = 24h, 1w, 1m, 1y
+@app.route('/api/Chart/NaiveChain/<network>', methods=['GET'])
+def get_ChartNaiveChain(network):
+    network_key = network.lower()
+    chain_id = CHAIN_IDS.get(network_key)
+
+    apiUrl = f"https://api.1inch.dev/token-details/v1.0/charts/interval/{chain_id}"
+    requestOptions = {
+        "headers": {
+            "Authorization": f"Bearer {my_1inch_api_key}"
+        },
+        "body": "",
+        "params": {
+            "interval": "24h, 7d, 30d, 365d",
+            "from_time": "1631644261"
+        }
+    }
+
+    # Prepare request components
+    headers = requestOptions.get("headers", {})
+    body = requestOptions.get("body", {})
+    params = requestOptions.get("params", {})
+
+    return requests.get(apiUrl, headers=headers, params=params).json()
+
+
 # example
 # V_GOD Token : MOO DENG -> 0x28561b8a2360f463011c16b6cc0b0cbef8dbbcad
 # "from": "1743844261" 2025/04/05 17:11:01
@@ -202,9 +253,8 @@ def get_CombinedBalance(network, wallet_address):
     token_addresses = list(balance_res.keys())
     # ========== (2) 呼叫 1inch Price API 一次抓所有 Token 的價格 (USD) ==========
     # 參考 1inch 文件，可用「?tokens=0x...,0x...,0x...」一次帶多個地址
-    print(token_addresses)
+    # print(token_addresses)
     joined_tokens = ",".join(token_addresses)
-    print(joined_tokens)
     price_api_url = f"https://api.1inch.dev/price/v1.1/{chain_id}/?tokens={joined_tokens}"
     price_res = requests.get(price_api_url, headers=headers).json()
     # price_res 結構可能類似：
@@ -258,7 +308,7 @@ def get_CombinedBalance(network, wallet_address):
         balance_in_usd = true_balance_amount * price_usd
         balance_display_str = f"{true_balance_amount}(USD={balance_in_usd:.2f})"
 
-        final_key = f"{token_addr} ({token_name})"
+        final_key = f"{token_name}"
         combined_result[final_key] = balance_display_str
 
     # (4) 回傳最終結果

@@ -14,6 +14,12 @@ my_wallet_address = os.getenv("WALLET_ADDRESS")
 app = Flask(__name__)
 CORS(app)
 
+# 建立一個簡易的 in-memory cache, 結構可自行調整
+# 格式: { cache_key: {"data":..., "timestamp":...} }
+combined_balance_cache = {}
+
+CACHE_TTL_SECONDS = 120  # 資料緩存時間 (秒)，可自行調整
+
 # 定義網絡名稱與對應的 ChainID (全部以十進位字串表示)
 CHAIN_IDS = {
     "rabbithole": "1",  # RabbitHole (Ethereum)
@@ -68,6 +74,7 @@ def get_ChartToken(network, token_address):
     params = requestOptions.get("params", {})
 
     return requests.get(apiUrl, headers=headers, params=params).json()
+
 
 # example
 # interval = 24h, 1w, 1m, 1y
@@ -222,7 +229,17 @@ def get_CombinedBalance(network, wallet_address):
     if not chain_id:
         return jsonify({"error": f"無效的網絡名稱：{network}"}), 400
 
-    # ========== (1) 先取得錢包上的所有 Token 與餘額 ==========
+    # --- Step 1: 檢查快取
+    cache_key = f"{network_key}_{wallet_address}"
+    cache_entry = combined_balance_cache.get(cache_key)
+
+    # 若有快取，且未超過設定的 TTL，就直接回傳快取結果
+    if cache_entry:
+        cached_time = cache_entry["timestamp"]
+        if (time.time() - cached_time) < CACHE_TTL_SECONDS:
+            return jsonify(cache_entry["data"])  # 直接回傳快取資料
+
+    # --- Step 2: 若沒有可用快取，就呼叫外部 API
     balance_api_url = f"https://api.1inch.dev/balance/v1.2/{chain_id}/balances/{wallet_address}"
     request_options = {
         "headers": {
@@ -236,57 +253,30 @@ def get_CombinedBalance(network, wallet_address):
     params = request_options.get("params", {})
 
     balance_res = requests.get(balance_api_url, headers=headers, params=params).json()
-    # balance_res 的結構可能是：
-    # {
-    #   "0x00a35fd824c717879bf370e70ac6868b95870dfb": "0",
-    #   "0x0994206dfe8de6ec6920ff4d779b0d950605fb53": "1000000000000000000",
-    #   ...
-    # }
-
     if not isinstance(balance_res, dict):
-        # 如果取得資料不是預期的 dict 結構，就直接回傳錯誤
         return jsonify({"error": "取得錢包餘額時發生異常"}), 500
-    # if len(balance_res) == 0:
-    #     # 如果該錢包沒有持有任何 Token，直接回傳空
-    #     return jsonify({})
 
     token_addresses = list(balance_res.keys())
-    # ========== (2) 呼叫 1inch Price API 一次抓所有 Token 的價格 (USD) ==========
-    # 參考 1inch 文件，可用「?tokens=0x...,0x...,0x...」一次帶多個地址
-    # print(token_addresses)
+
+    # (2) 一次抓取所有 Token 價格
     joined_tokens = ",".join(token_addresses)
     price_api_url = f"https://api.1inch.dev/price/v1.1/{chain_id}/?tokens={joined_tokens}"
     price_res = requests.get(price_api_url, headers=headers).json()
-    # price_res 結構可能類似：
-    # {
-    #   "tokens": {
-    #     "0x00a35fd824c717879bf370e70ac6868b95870dfb": { "price": "0.23", "decimals": 18, ... },
-    #     "0x0994206dfe8de6ec6920ff4d779b0d950605fb53": { "price": "1.02", "decimals": 18, ... },
-    #     ...
-    #   }
-    # }
 
     token_price_map = {}
     if isinstance(price_res, dict) and "tokens" in price_res:
-        token_price_map = price_res["tokens"]  # key: 合約地址(小寫), value: { "price": "...", ... }
+        token_price_map = price_res["tokens"]
 
-    # ========== (3) 逐一取得 Token 名稱 (name) / Symbol / Decimals 等 (可省略) ==========
-    #   - 1inch Token Info API: https://api.1inch.dev/token/v1.2/{chain_id}/custom/{token_address}
-    #   - 若有大量 token，這裡要小心呼叫次數過多；可依需求做快取或批次查詢。
-
+    # (3) 取得 Token Metadata 並計算
     combined_result = {}
     for token_addr in token_addresses:
-        time.sleep(1)  # <--- 加上這行，每次查詢前先暫停 1 秒，限制頻率
-        raw_balance_str = balance_res[token_addr]  # 字串格式的餘額, ex: "1000000000000000000"
-        # 預設顯示餘額 = 0
-        real_balance = 0
+        time.sleep(1)  # 節流 - 每查一個 token 前暫停 1 秒
+        raw_balance_str = balance_res[token_addr]
         try:
-            # 轉成 int
             real_balance = int(raw_balance_str)
         except ValueError:
             real_balance = 0
 
-        # 取得該 Token 的價格資訊
         token_price_info = token_price_map.get(token_addr.lower(), {})
         price_usd_str = token_price_info.get("price", "0")
         decimals_in_price = token_price_info.get("decimals", 18)
@@ -296,14 +286,12 @@ def get_CombinedBalance(network, wallet_address):
         except ValueError:
             price_usd = 0
 
-        # 先呼叫 Token Info API 取得 name
+        # 先呼叫 1inch Token Info API
         token_info_url = f"https://api.1inch.dev/token/v1.2/{chain_id}/custom/{token_addr}"
         token_info_res = requests.get(token_info_url, headers=headers).json()
         token_name = token_info_res.get("name", "Unknown")
-        token_symbol = token_info_res.get("symbol", "")
         token_decimals = token_info_res.get("decimals", 18)
 
-        # 真實餘額數量
         true_balance_amount = real_balance / (10 ** token_decimals)
         balance_in_usd = true_balance_amount * price_usd
         balance_display_str = f"{true_balance_amount}(USD={balance_in_usd:.2f})"
@@ -311,7 +299,12 @@ def get_CombinedBalance(network, wallet_address):
         final_key = f"{token_name}"
         combined_result[final_key] = balance_display_str
 
-    # (4) 回傳最終結果
+    # --- Step 3: 把結果存進快取
+    combined_balance_cache[cache_key] = {
+        "data": combined_result,
+        "timestamp": time.time()
+    }
+
     return jsonify(combined_result)
 
 

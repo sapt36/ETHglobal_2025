@@ -293,33 +293,50 @@ def get_CombinedBalance(network, wallet_address):
 
 @app.route('/api/NFT/<wallet_address>', methods=['GET'])
 def get_NFTs(wallet_address):
-
-    apiUrl = f"https://api.1inch.dev/nft/v2/byaddress"
-
+    apiUrl = "https://api.1inch.dev/nft/v2/byaddress"
     requestOptions = {
         "headers": {
             "Authorization": f"Bearer {my_1inch_api_key}"
         },
         "body": "",
         "params": {
-            "chainIds": [
-                1,
-                137,
-                8453,
-                42161,
-                8217,
-                43114,
-                10
-            ],
-            "address": f"{wallet_address}",
+            "chainIds": [1, 137, 8453, 42161, 8217, 43114, 10],
+            "address": f"{wallet_address}"
         }
     }
-    # Prepare request components
     headers = requestOptions.get("headers", {})
-    body = requestOptions.get("body", {})
     params = requestOptions.get("params", {})
 
-    return requests.get(apiUrl, headers=headers, params=params).json()
+    # 呼叫 1inch API
+    raw_res = requests.get(apiUrl, headers=headers, params=params).json()
+    # raw_res 可能包含結構：
+    # {
+    #   "assets": [
+    #       {
+    #         "name": "...",
+    #         "image_url": "...",
+    #         ...
+    #       },
+    #       ...
+    #   ]
+    # }
+
+    # 取出 assets 陣列 (如果不存在，預設空陣列)
+    assets = raw_res.get("assets", [])
+
+    # 準備要回傳的資料結構：{"NFT名稱": "NFT圖片URL", ...}
+    result = {}
+
+    for item in assets:
+        nft_name = item.get("name") or "Unknown"
+        nft_image_url = item.get("image_url") or "No Image"
+
+        # 將 name : image_url 放入字典
+        result[nft_name] = nft_image_url
+
+    # 最終將組合後的 result 回傳
+    return jsonify(result)
+
 
 
 @app.route('/api/GasPrice/<network>', methods=['GET'])

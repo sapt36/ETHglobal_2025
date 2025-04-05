@@ -1,6 +1,4 @@
-from math import degrees
-
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from dotenv import load_dotenv
 import os
 import requests
@@ -89,12 +87,34 @@ def get_OrderBookByWallet(wallet_address, network):
     return requests.get(apiUrl, headers=headers, params=params).json()
 
 
-@app.route('/api/TokenBalance/<network>/<wallet_address>', methods=['GET'])
+@app.route('/api/Token/TokenBalance/<network>/<wallet_address>', methods=['GET'])
 def get_TokenBalance(wallet_address, network):
     network_key = network.lower()
     chain_id = CHAIN_IDS.get(network_key)
 
     apiUrl = f"https://api.1inch.dev/balance/v1.2/{chain_id}/balances/{wallet_address}"
+    requestOptions = {
+        "headers": {
+            "Authorization": f"Bearer {my_1inch_api_key}"
+        },
+        "body": "",
+        "params": {}
+    }
+
+    # Prepare request components
+    headers = requestOptions.get("headers", {})
+    body = requestOptions.get("body", {})
+    params = requestOptions.get("params", {})
+
+    return requests.get(apiUrl, headers=headers, params=params).json()
+
+
+@app.route('/api/Token/TokenInfo/<network>/<token_address>', methods=['GET'])
+def get_TokenInfo(network, token_address):
+    network_key = network.lower()
+    chain_id = CHAIN_IDS.get(network_key)
+
+    apiUrl = f"https://api.1inch.dev/token/v1.2/{chain_id}/custom/{token_address}"
     requestOptions = {
         "headers": {
             "Authorization": f"Bearer {my_1inch_api_key}"

@@ -1,6 +1,9 @@
 # 1inch Dev Backend Service
 
-![image](https://github.com/user-attachments/assets/7ef14ede-b98a-4ba6-9c87-a734265ca422)
+<p align="center">
+<img src="https://github.com/user-attachments/assets/7ef14ede-b98a-4ba6-9c87-a734265ca422">
+</p>
+
 This project uses Flask as the backend framework and integrates the [1inch Dev API](https://docs.1inch.io/api) to provide a variety of blockchain-related query functions, including **Token Balances, Token Prices, NFT Information, OrderBook, Gas Price,** and more. It also leverages a simple **in-memory Cache** to optimize request speeds.
 
 ---

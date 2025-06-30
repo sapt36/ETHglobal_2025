@@ -74,52 +74,249 @@ This project uses Flask as the backend framework and integrates the [1inch Dev A
 
 ---
 
-## API Documentation
+### API Documentation
 
-### 1. CombinedBalance
-- **Endpoint**: `/api/Token/CombinedBalance/<network>/<wallet_address>`
-- **Method**: `GET`
-- **Functionality**: 
-  - First, query the Token balances for the specified `wallet_address` on the given `network` using `balance/v1.2`  
-  - Then, for each Token, call `token/v1.2/custom/{tokenAddress}` to retrieve **Token Name, Decimals, Logo URI**  
-  - Utilizes an in-memory Cache to avoid repeated queries in a short time period
-- **Example**:  
-  ```
-  GET /api/Token/CombinedBalance/ethereum/0xYourWallet
-  ```
+This document describes the RESTful APIs provided by the backend Flask application, which integrates with the 1inch.dev API to retrieve various blockchain-related data.
 
-### 2. TokenBalance / TokenInfo
-- **`/api/Token/TokenBalance/<network>/<wallet_address>`**  
-  - Retrieves the Token balances for the wallet on the specified network (excluding additional Token details)
-- **`/api/Token/TokenInfo/<network>/<token_address>`**  
-  - Retrieves detailed information for the specified Token contract, including name, symbol, logoURI, etc.
+### Base URL
 
-### 3. Chart (Token / NaiveChain / HistoryTokenPrice)
-- **`/api/Chart/Token/<network>/<token_address>`**  
-  - Calls the `token-details/v1.0/charts` endpoint with parameters such as interval and from_time
-- **`/api/Chart/NaiveChain/<network>`**  
-  - Similar to the above, but only passes the chainId without a token_address
-- **`/api/Chart/HistoryTokenPrice/<network>/<TimeFrom>/<TimeTo>/<token_address>`**  
-  - Retrieves historical price data within a custom interval (`from` / `to`)
+`http://127.0.0.1:5000` (or your deployed server address)
 
-### 4. OrderBook (ByHash / ByWallet)
-- **`/api/OrderBook/Hash/<network>/<hash_address>`**  
-  - Retrieves OrderBook information using a transaction hash  
-- **`/api/OrderBook/Wallet/<network>/<wallet_address>`**  
-  - Retrieves OrderBook information based on a wallet address
+### Authentication
 
-### 5. NFT (by address)
-- **`/api/NFT/<wallet_address>`**  
-  - Calls the `nft/v2/byaddress` endpoint, supporting multiple chains  
-  - Returns a JSON structure in the format: `{ "NFT Name": "NFT Image URL", ... }`
+All API calls to 1inch.dev require an `Authorization` header with a Bearer token. This token (`my_1inch_api_key`) should be configured as an environment variable on the server.
 
-### 6. GasPrice
-- **`/api/GasPrice/<network>`**  
-  - Retrieves the current Gas Price information for the specified network
+### Network Chain IDs
 
-### 7. Sample Data
-- **`/api/data`**  
-  - A simple test endpoint that returns example JSON: `{"id":1,"name":"Alice","message":"Hello from Python backend"}`
+The following table lists the supported network names and their corresponding Chain IDs used throughout the APIs:
+
+| Network Name | Chain ID (Decimal) |
+| --- | --- |
+| `rabbithole` | `1` |
+| `aurora` | `1313161554` |
+| `arbitrum` | `42161` |
+| `avalanche` | `43114` |
+| `base` | `8453` |
+| `linea` | `59144` |
+| `binance` | `56` |
+| `fantom` | `250` |
+| `gnosis` | `100` |
+| `kaia` | `8217` |
+| `optimistic` | `10` |
+| `polygon` | `137` |
+| `zksync` | `324` |
+| `ethereum` | `1` |
+
+### Endpoints
+
+### 1. Get Example Data
+
+- **Endpoint:** `/api/data`
+- **Method:** `GET`
+- **Description:** Returns simple example data from the backend.
+- **Response:**
+    - `200 OK`
+    
+    ```
+    {
+      "id": 1,
+      "name": "Alice",
+      "message": "Hello from Python backend"
+    }
+    
+    ```
+    
+
+### 2. Get Chart Data for a Specific Token
+
+- **Endpoint:** `/api/Chart/Token/<network>/<token_address>`
+- **Method:** `GET`
+- **Description:** Retrieves historical price chart data for a specific token on a given network.
+- **Path Parameters:**
+    - `network` (string, required): The blockchain network name (e.g., `ethereum`, `polygon`).
+    - `token_address` (string, required): The contract address of the token.
+- **Query Parameters (Internal to 1inch API):**
+    - `interval` (string): Time interval for chart data. Default `24h, 1w, 1m, 1y`.
+    - `from_time` (string): Start timestamp for data in Unix epoch seconds. Default `1631644261`.
+- **Response:**
+    - `200 OK`: JSON object containing chart data as returned by the 1inch.dev API.
+    - `400 Bad Request`: If the `network` is invalid.
+    - `5xx Server Error`: If there's an issue with the upstream 1inch.dev API or internal server error.
+
+### 3. Get Chart Data for a Native Chain
+
+- **Endpoint:** `/api/Chart/NaiveChain/<network>`
+- **Method:** `GET`
+- **Description:** Retrieves historical price chart data for the native token of a given blockchain network.
+- **Path Parameters:**
+    - `network` (string, required): The blockchain network name (e.g., `ethereum`, `polygon`).
+- **Query Parameters (Internal to 1inch API):**
+    - `interval` (string): Time interval for chart data. Default `24h, 7d, 30d, 365d`.
+    - `from_time` (string): Start timestamp for data in Unix epoch seconds. Default `1631644261`.
+- **Response:**
+    - `200 OK`: JSON object containing chart data as returned by the 1inch.dev API.
+    - `400 Bad Request`: If the `network` is invalid.
+    - `5xx Server Error`: If there's an issue with the upstream 1inch.dev API or internal server error.
+
+### 4. Get Historical Token Price for a Range
+
+- **Endpoint:** `/api/Chart/HistoryTokenPrice/<network>/<TimeFrom>/<TimeTo>/<token_address>`
+- **Method:** `GET`
+- **Description:** Retrieves historical price data for a specific token within a specified time range.
+- **Path Parameters:**
+    - `network` (string, required): The blockchain network name.
+    - `TimeFrom` (string, required): Start timestamp in Unix epoch seconds (e.g., `1743844261`).
+    - `TimeTo` (string, required): End timestamp in Unix epoch seconds (e.g., `1743854275`).
+    - `token_address` (string, required): The contract address of the token.
+- **Response:**
+    - `200 OK`: JSON object containing historical price data as returned by the 1inch.dev API.
+    - `400 Bad Request`: If the `network` is invalid or timestamps are malformed.
+    - `5xx Server Error`: If there's an issue with the upstream 1inch.dev API or internal server error.
+
+### 5. Get Order Book by Hash
+
+- **Endpoint:** `/api/OrderBook/Hash/<network>/<hash_address>`
+- **Method:** `GET`
+- **Description:** Retrieves details of a specific order from the order book using its hash address.
+- **Path Parameters:**
+    - `network` (string, required): The blockchain network name.
+    - `hash_address` (string, required): The hash address of the order.
+- **Response:**
+    - `200 OK`: JSON object containing order details as returned by the 1inch.dev API.
+    - `400 Bad Request`: If the `network` is invalid.
+    - `5xx Server Error`: If there's an issue with the upstream 1inch.dev API or internal server error.
+
+### 6. Get Order Book by Wallet Address
+
+- **Endpoint:** `/api/OrderBook/Wallet/<network>/<wallet_address>`
+- **Method:** `GET`
+- **Description:** Retrieves a list of orders associated with a specific wallet address from the order book.
+- **Path Parameters:**
+    - `network` (string, required): The blockchain network name.
+    - `wallet_address` (string, required): The wallet address.
+- **Query Parameters (Internal to 1inch API):**
+    - `limit` (string): Maximum number of orders to return. Default `5`.
+- **Response:**
+    - `200 OK`: JSON array of order objects as returned by the 1inch.dev API.
+    - `400 Bad Request`: If the `network` is invalid.
+    - `5xx Server Error`: If there's an issue with the upstream 1inch.dev API or internal server error.
+
+### 7. Get Token Balance for a Wallet
+
+- **Endpoint:** `/api/Token/TokenBalance/<network>/<wallet_address>`
+- **Method:** `GET`
+- **Description:** Retrieves the raw token balances (in smallest units) for all tokens held by a specific wallet on a given network.
+- **Path Parameters:**
+    - `network` (string, required): The blockchain network name.
+    - `wallet_address` (string, required): The wallet address.
+- **Response:**
+    - `200 OK`: JSON object where keys are token addresses and values are raw balances.
+    
+    ```
+    {
+      "0x...token1_address": "10000000000000000000",
+      "0x...token2_address": "500000000000000000"
+      // ... more tokens
+    }
+    
+    ```
+    
+    - `400 Bad Request`: If the `network` is invalid.
+    - `5xx Server Error`: If there's an issue with the upstream 1inch.dev API or internal server error.
+
+### 8. Get Token Information
+
+- **Endpoint:** `/api/Token/TokenInfo/<network>/<token_address>`
+- **Method:** `GET`
+- **Description:** Retrieves detailed information (name, decimals, symbol, etc.) about a specific token.
+- **Path Parameters:**
+    - `network` (string, required): The blockchain network name.
+    - `token_address` (string, required): The contract address of the token.
+- **Response:**
+    - `200 OK`: JSON object containing token details.
+    
+    ```
+    {
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+      "decimals": 6,
+      "logoURI": "https://tokens.1inch.io/0xdac17f958d2ee523a2206206994597c13d831ec7.png"
+    }
+    
+    ```
+    
+    - `400 Bad Request`: If the `network` is invalid.
+    - `5xx Server Error`: If there's an issue with the upstream 1inch.dev API or internal server error.
+
+### 9. Get Combined Token Balance and Value
+
+- **Endpoint:** `/api/Token/CombinedBalance/<network>/<wallet_address>`
+- **Method:** `GET`
+- **Description:** Retrieves all token balances for a wallet, converts them to human-readable amounts, and attempts to fetch their USD prices to calculate a combined value. This endpoint includes an in-memory cache with a TTL of `12000` seconds (3 hours 20 minutes) to reduce repeated API calls.
+- **Path Parameters:**
+    - `network` (string, required): The blockchain network name.
+    - `wallet_address` (string, required): The wallet address.
+- **Response:**
+    - `200 OK`: JSON object where keys are token names and values are their human-readable balances.
+    
+    ```
+    {
+      "Wrapped Ether": "0.12345",
+      "USD Coin": "1500.75",
+      "Uniswap": "5.67",
+      "Unknown": "0.0001" // For tokens where name couldn't be retrieved
+    }
+    
+    ```
+    
+    - `400 Bad Request`: If the `network` is invalid.
+    - `500 Internal Server Error`: If there's an issue fetching balances, prices, or token info.
+
+### 10. Get NFTs by Wallet Address
+
+- **Endpoint:** `/api/NFT/<wallet_address>`
+- **Method:** `GET`
+- **Description:** Retrieves a list of NFTs owned by a specific wallet address across multiple predefined chains.
+- **Path Parameters:**
+    - `wallet_address` (string, required): The wallet address.
+- **Query Parameters (Internal to 1inch API):**
+    - `chainIds` (list of integers): The list of chain IDs to query for NFTs. Currently hardcoded to `[1, 137, 8453, 42161, 8217, 43114, 10]`.
+- **Response:**
+    - `200 OK`: JSON object where keys are NFT names and values are their image URLs.
+    
+    ```
+    {
+      "CryptoPunk #1234": "https://example.com/cryptopunk1234.png",
+      "Bored Ape Yacht Club #5678": "https://example.com/boredape5678.jpg",
+      "My Custom NFT": "No Image" // If image_url is missing
+    }
+    
+    ```
+    
+    - `5xx Server Error`: If there's an issue with the upstream 1inch.dev API or internal server error.
+
+### 11. Get Gas Price
+
+- **Endpoint:** `/api/GasPrice/<network>`
+- **Method:** `GET`
+- **Description:** Retrieves current gas price information for a given blockchain network.
+- **Path Parameters:**
+    - `network` (string, required): The blockchain network name (e.g., `ethereum`, `polygon`).
+- **Response:**
+    - `200 OK`: JSON object containing gas price details (e.g., `fast`, `standard`, `slow` gas prices in Gwei).
+    
+    ```
+    {
+      "fast": "20",
+      "standard": "15",
+      "slow": "10"
+    }
+    
+    ```
+    
+    - `400 Bad Request`: If the `network` is invalid.
+    - `5xx Server Error`: If there's an issue with the upstream 1inch.dev API or internal server error.
 
 ---
 
